@@ -1,0 +1,23 @@
+# Build output
+build/
+dist/
+sdkconfig
+sdkconfig.old
+.config
+.config.old
+
+# Dependencies
+dependencies.lock
+managed_components/
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log 
