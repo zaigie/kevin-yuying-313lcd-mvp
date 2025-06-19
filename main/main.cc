@@ -13,6 +13,25 @@
 
 #define TAG "main"
 
+// 音频功放引脚 - 来自原项目配置
+#define AUDIO_CODEC_PA_PIN GPIO_NUM_45
+
+// 初始化并禁用音频功放，防止扬声器一直响
+static void disable_audio_pa(void)
+{
+    gpio_config_t io_conf = {};
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pin_bit_mask = (1ULL << AUDIO_CODEC_PA_PIN);
+    io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE; // 启用下拉确保低电平
+    io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+    gpio_config(&io_conf);
+
+    // 确保音频功放是禁用的（低电平）
+    gpio_set_level(AUDIO_CODEC_PA_PIN, 0);
+    ESP_LOGI(TAG, "Audio PA disabled and silenced on GPIO%d", AUDIO_CODEC_PA_PIN);
+}
+
 // Task to setup display and graphics after board initialization
 static void display_setup_task(void *param)
 {
@@ -59,43 +78,54 @@ static void display_setup_task(void *param)
         vTaskDelay(pdMS_TO_TICKS(1000));
 
         ESP_LOGI(TAG, "Attempting to create label...");
-        // Test drawing some basic graphics with LVGL
-        lv_obj_t *label = lv_label_create(lv_screen_active());
-        if (label)
+        // Test drawing some basic graphics with LVGL using display lock
+        if (display->Lock(1000))
         {
-            ESP_LOGI(TAG, "Label created successfully");
-            lv_label_set_text(label, "LVGL Working!\nESP32-S3");
-            lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
-
-            ESP_LOGI(TAG, "Waiting before setting color...");
-            vTaskDelay(pdMS_TO_TICKS(200));
-
-            ESP_LOGI(TAG, "Setting label color...");
-            lv_obj_set_style_text_color(label, lv_color_hex(0xFF0000), 0);
-            ESP_LOGI(TAG, "Label color set");
+            lv_obj_t *label = lv_label_create(lv_screen_active());
+            if (label)
+            {
+                ESP_LOGI(TAG, "Label created successfully");
+                lv_label_set_text(label, "LVGL Working!\nESP32-S3");
+                lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+                lv_obj_set_style_text_color(label, lv_color_hex(0xFF0000), 0);
+                ESP_LOGI(TAG, "Label styled and positioned");
+            }
+            else
+            {
+                ESP_LOGE(TAG, "Failed to create label");
+            }
+            display->Unlock();
         }
         else
         {
-            ESP_LOGE(TAG, "Failed to create label");
+            ESP_LOGE(TAG, "Failed to acquire display lock for label creation");
         }
 
         ESP_LOGI(TAG, "Waiting before rectangle...");
         vTaskDelay(pdMS_TO_TICKS(500));
 
         ESP_LOGI(TAG, "Attempting to create rectangle...");
-        // Create a simple rectangle
-        lv_obj_t *rect = lv_obj_create(lv_screen_active());
-        if (rect)
+        // Create a simple rectangle using display lock
+        if (display->Lock(1000))
         {
-            ESP_LOGI(TAG, "Rectangle created successfully");
-            lv_obj_set_size(rect, 150, 80);
-            lv_obj_align(rect, LV_ALIGN_BOTTOM_MID, 0, -50);
-            lv_obj_set_style_bg_color(rect, lv_color_hex(0x00FF00), 0);
-            ESP_LOGI(TAG, "Rectangle configured");
+            lv_obj_t *rect = lv_obj_create(lv_screen_active());
+            if (rect)
+            {
+                ESP_LOGI(TAG, "Rectangle created successfully");
+                lv_obj_set_size(rect, 150, 80);
+                lv_obj_align(rect, LV_ALIGN_BOTTOM_MID, 0, -50);
+                lv_obj_set_style_bg_color(rect, lv_color_hex(0x00FF00), 0);
+                ESP_LOGI(TAG, "Rectangle configured");
+            }
+            else
+            {
+                ESP_LOGE(TAG, "Failed to create rectangle");
+            }
+            display->Unlock();
         }
         else
         {
-            ESP_LOGE(TAG, "Failed to create rectangle");
+            ESP_LOGE(TAG, "Failed to acquire display lock for rectangle creation");
         }
 
         ESP_LOGI(TAG, "LVGL graphics test completed");
@@ -114,6 +144,9 @@ static void display_setup_task(void *param)
 extern "C" void app_main(void)
 {
     ESP_LOGI(TAG, "Kevin Yuying 313 LCD MVP starting...");
+
+    // 首先禁用音频功放，防止扬声器一直响
+    disable_audio_pa();
 
     // Initialize the default event loop
     ESP_ERROR_CHECK(esp_event_loop_create_default());
