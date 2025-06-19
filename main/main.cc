@@ -16,66 +16,96 @@
 // Task to setup display and graphics after board initialization
 static void display_setup_task(void *param)
 {
-    // Wait a bit for the board to fully initialize
-    vTaskDelay(pdMS_TO_TICKS(500));
+    ESP_LOGI(TAG, "Display setup task starting...");
+
+    // Wait longer for the board to fully initialize
+    vTaskDelay(pdMS_TO_TICKS(1000));
 
     auto &board = Board::GetInstance();
+    ESP_LOGI(TAG, "Got board instance");
 
-    // Get display and show test content
-    auto *display = board.GetDisplay();
-    if (display)
-    {
-        ESP_LOGI(TAG, "Display initialized successfully: %dx%d", display->width(), display->height());
-
-        // Wait a bit more for LVGL to be ready
-        vTaskDelay(pdMS_TO_TICKS(200));
-
-        // Test the display by showing some text
-        display->SetStatus("Hello LVGL!");
-        display->ShowNotification("Kevin Yuying 313 LCD MVP", 5000);
-
-        // Wait before creating more objects
-        vTaskDelay(pdMS_TO_TICKS(100));
-
-        // Test drawing some basic graphics with LVGL
-        lv_obj_t *label = lv_label_create(lv_screen_active());
-        if (label)
-        {
-            lv_label_set_text(label, "LVGL Working!\nScreen: 376x960\nESP32-S3\nGC9503 Driver");
-            lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
-            lv_obj_set_style_text_color(label, lv_color_hex(0xFF0000), 0);
-        }
-
-        // Wait before creating rectangle
-        vTaskDelay(pdMS_TO_TICKS(100));
-
-        // Create a simple rectangle
-        lv_obj_t *rect = lv_obj_create(lv_screen_active());
-        if (rect)
-        {
-            lv_obj_set_size(rect, 200, 100);
-            lv_obj_align(rect, LV_ALIGN_BOTTOM_MID, 0, -50);
-            lv_obj_set_style_bg_color(rect, lv_color_hex(0x00FF00), 0);
-            lv_obj_set_style_border_width(rect, 2, 0);
-            lv_obj_set_style_border_color(rect, lv_color_hex(0x0000FF), 0);
-        }
-
-        ESP_LOGI(TAG, "LVGL graphics displayed");
-    }
-    else
-    {
-        ESP_LOGE(TAG, "Failed to initialize display");
-    }
-
-    // Get backlight and set brightness
+    // Get backlight first and set brightness
     auto *backlight = board.GetBacklight();
     if (backlight)
     {
         ESP_LOGI(TAG, "Setting backlight brightness to 80%%");
         backlight->SetBrightness(204); // 80% of 255
     }
+    else
+    {
+        ESP_LOGI(TAG, "No backlight available");
+    }
 
-    ESP_LOGI(TAG, "Display setup complete");
+    // Get display and test basic functionality
+    auto *display = board.GetDisplay();
+    if (display)
+    {
+        ESP_LOGI(TAG, "Display available: %dx%d", display->width(), display->height());
+
+        // Wait much longer for LVGL to be completely ready
+        ESP_LOGI(TAG, "Waiting for LVGL to be ready...");
+        vTaskDelay(pdMS_TO_TICKS(2000));
+
+        ESP_LOGI(TAG, "Attempting to set status...");
+        display->SetStatus("Hello LVGL!");
+
+        ESP_LOGI(TAG, "Waiting before notification...");
+        vTaskDelay(pdMS_TO_TICKS(500));
+
+        ESP_LOGI(TAG, "Attempting to show notification...");
+        display->ShowNotification("Kevin Yuying 313 LCD MVP", 10000);
+
+        ESP_LOGI(TAG, "Waiting before graphics...");
+        vTaskDelay(pdMS_TO_TICKS(1000));
+
+        ESP_LOGI(TAG, "Attempting to create label...");
+        // Test drawing some basic graphics with LVGL
+        lv_obj_t *label = lv_label_create(lv_screen_active());
+        if (label)
+        {
+            ESP_LOGI(TAG, "Label created successfully");
+            lv_label_set_text(label, "LVGL Working!\nESP32-S3");
+            lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+
+            ESP_LOGI(TAG, "Waiting before setting color...");
+            vTaskDelay(pdMS_TO_TICKS(200));
+
+            ESP_LOGI(TAG, "Setting label color...");
+            lv_obj_set_style_text_color(label, lv_color_hex(0xFF0000), 0);
+            ESP_LOGI(TAG, "Label color set");
+        }
+        else
+        {
+            ESP_LOGE(TAG, "Failed to create label");
+        }
+
+        ESP_LOGI(TAG, "Waiting before rectangle...");
+        vTaskDelay(pdMS_TO_TICKS(500));
+
+        ESP_LOGI(TAG, "Attempting to create rectangle...");
+        // Create a simple rectangle
+        lv_obj_t *rect = lv_obj_create(lv_screen_active());
+        if (rect)
+        {
+            ESP_LOGI(TAG, "Rectangle created successfully");
+            lv_obj_set_size(rect, 150, 80);
+            lv_obj_align(rect, LV_ALIGN_BOTTOM_MID, 0, -50);
+            lv_obj_set_style_bg_color(rect, lv_color_hex(0x00FF00), 0);
+            ESP_LOGI(TAG, "Rectangle configured");
+        }
+        else
+        {
+            ESP_LOGE(TAG, "Failed to create rectangle");
+        }
+
+        ESP_LOGI(TAG, "LVGL graphics test completed");
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Failed to get display instance");
+    }
+
+    ESP_LOGI(TAG, "Display setup task completed");
 
     // Delete this task
     vTaskDelete(NULL);
@@ -98,6 +128,7 @@ extern "C" void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
 
+    ESP_LOGI(TAG, "Initializing board...");
     // Get board instance - this will initialize the hardware
     auto &board = Board::GetInstance();
     ESP_LOGI(TAG, "Board type: %s", board.GetBoardType().c_str());
@@ -105,13 +136,15 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "Board initialization complete. Starting display setup task...");
 
     // Create display setup task to avoid blocking main task
-    xTaskCreate(display_setup_task, "display_setup", 4096, NULL, 5, NULL);
+    xTaskCreate(display_setup_task, "display_setup", 8192, NULL, 3, NULL);
 
-    ESP_LOGI(TAG, "MVP initialization complete. System running.");
+    ESP_LOGI(TAG, "Main initialization complete. System running.");
 
-    // Main loop - just keep the system running
+    // Main loop - just keep the system running and print periodic status
+    int counter = 0;
     while (1)
     {
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(5000));
+        ESP_LOGI(TAG, "System running... %d", ++counter);
     }
 }

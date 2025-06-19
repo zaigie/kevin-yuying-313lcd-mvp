@@ -55,16 +55,20 @@ void LcdDisplay::Unlock()
 
 void LcdDisplay::SetupUI()
 {
-    // Don't lock here as it causes deadlock during initialization
-    ESP_LOGI(TAG, "Setting up UI components");
+    ESP_LOGI(TAG, "Setting up basic UI components");
 
-    // Create status label with simple configuration first
+    // Create status label in the top center
     status_label_ = lv_label_create(lv_screen_active());
     if (status_label_)
     {
         lv_label_set_text(status_label_, "Ready");
         lv_obj_align(status_label_, LV_ALIGN_TOP_MID, 0, 10);
-        // Use default text color first, will set custom color later
+        ESP_LOGI(TAG, "Status label created");
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Failed to create status label");
+        return;
     }
 
     // Create notification label
@@ -72,11 +76,17 @@ void LcdDisplay::SetupUI()
     if (notification_label_)
     {
         lv_label_set_text(notification_label_, "");
-        lv_obj_align(notification_label_, LV_ALIGN_TOP_MID, 0, 40);
+        lv_obj_align(notification_label_, LV_ALIGN_TOP_MID, 0, 50);
         lv_obj_add_flag(notification_label_, LV_OBJ_FLAG_HIDDEN);
+        ESP_LOGI(TAG, "Notification label created");
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Failed to create notification label");
+        return;
     }
 
-    ESP_LOGI(TAG, "UI components created successfully");
+    ESP_LOGI(TAG, "Basic UI components created successfully");
 }
 
 // Task function to set styles after initialization
@@ -85,7 +95,7 @@ void setup_ui_styles_task(void *param)
     LcdDisplay *display = static_cast<LcdDisplay *>(param);
 
     // Wait a bit for LVGL to be fully initialized
-    vTaskDelay(pdMS_TO_TICKS(100));
+    vTaskDelay(pdMS_TO_TICKS(200));
 
     ESP_LOGI(TAG, "Setting up UI styles");
 
@@ -95,11 +105,13 @@ void setup_ui_styles_task(void *param)
     if (display->status_label_)
     {
         lv_obj_set_style_text_color(display->status_label_, lv_color_white(), 0);
+        ESP_LOGI(TAG, "Status label style set");
     }
 
     if (display->notification_label_)
     {
         lv_obj_set_style_text_color(display->notification_label_, lv_color_hex(0x00FF00), 0);
+        ESP_LOGI(TAG, "Notification label style set");
     }
 
     ESP_LOGI(TAG, "UI styles set successfully");
@@ -130,14 +142,14 @@ RgbLcdDisplay::RgbLcdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_h
     ESP_LOGI(TAG, "Initialize LVGL port");
     lvgl_port_cfg_t port_cfg = ESP_LVGL_PORT_INIT_CONFIG();
     port_cfg.task_priority = 4;
-    port_cfg.timer_period_ms = 10; // Increase timer period to reduce load
+    port_cfg.timer_period_ms = 20; // Further increase timer period to reduce load
     ESP_ERROR_CHECK(lvgl_port_init(&port_cfg));
 
     ESP_LOGI(TAG, "Adding RGB LCD display to LVGL");
     const lvgl_port_display_cfg_t display_cfg = {
         .io_handle = panel_io_,
         .panel_handle = panel_,
-        .buffer_size = static_cast<uint32_t>(width_ * 15), // Reduce buffer size
+        .buffer_size = static_cast<uint32_t>(width_ * 10), // Further reduce buffer size
         .double_buffer = true,
         .hres = static_cast<uint32_t>(width_),
         .vres = static_cast<uint32_t>(height_),
@@ -172,9 +184,11 @@ RgbLcdDisplay::RgbLcdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_h
         lv_display_set_offset(display_, offset_x, offset_y);
     }
 
+    ESP_LOGI(TAG, "Setting up basic UI");
     // Setup the basic UI first
     SetupUI();
 
+    ESP_LOGI(TAG, "Creating UI styles task");
     // Create a task to set styles after initialization completes
     xTaskCreate(setup_ui_styles_task, "ui_styles", 2048, this, 5, NULL);
 
