@@ -18,6 +18,9 @@ protected:
     virtual bool Lock(int timeout_ms = 0) override;
     virtual void Unlock() override;
 
+    // Make these accessible to setup function
+    friend void setup_ui_styles_task(void *param);
+
 protected:
     // 添加protected构造函数
     LcdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_t panel, int width, int height);
