@@ -78,9 +78,9 @@ static void display_setup_task(void *param)
         vTaskDelay(pdMS_TO_TICKS(1000));
 
         ESP_LOGI(TAG, "Attempting to create label...");
-        // Test drawing some basic graphics with LVGL using display lock
-        if (display->Lock(1000))
+        // Test drawing some basic graphics with LVGL using DisplayLockGuard
         {
+            DisplayLockGuard lock(display);
             lv_obj_t *label = lv_label_create(lv_screen_active());
             if (label)
             {
@@ -94,20 +94,15 @@ static void display_setup_task(void *param)
             {
                 ESP_LOGE(TAG, "Failed to create label");
             }
-            display->Unlock();
-        }
-        else
-        {
-            ESP_LOGE(TAG, "Failed to acquire display lock for label creation");
         }
 
         ESP_LOGI(TAG, "Waiting before rectangle...");
         vTaskDelay(pdMS_TO_TICKS(500));
 
         ESP_LOGI(TAG, "Attempting to create rectangle...");
-        // Create a simple rectangle using display lock
-        if (display->Lock(1000))
+        // Create a simple rectangle using DisplayLockGuard
         {
+            DisplayLockGuard lock(display);
             lv_obj_t *rect = lv_obj_create(lv_screen_active());
             if (rect)
             {
@@ -121,11 +116,6 @@ static void display_setup_task(void *param)
             {
                 ESP_LOGE(TAG, "Failed to create rectangle");
             }
-            display->Unlock();
-        }
-        else
-        {
-            ESP_LOGE(TAG, "Failed to acquire display lock for rectangle creation");
         }
 
         ESP_LOGI(TAG, "LVGL graphics test completed");
