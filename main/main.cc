@@ -14,110 +14,64 @@
 
 #define TAG "main"
 
-// Task to setup display and graphics after board initialization
-static void display_setup_task(void *param)
+// Simple display initialization - no complex locking or tasks needed
+static void setup_simple_display()
 {
-    ESP_LOGI(TAG, "Display setup task starting...");
-
-    // Wait longer for the board to fully initialize
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    ESP_LOGI(TAG, "Setting up simple display...");
 
     auto &board = Board::GetInstance();
-    ESP_LOGI(TAG, "Got board instance");
 
-    // Get backlight first and set brightness
+    // Set backlight
     auto *backlight = board.GetBacklight();
     if (backlight)
     {
         ESP_LOGI(TAG, "Setting backlight brightness to 80%%");
         backlight->SetBrightness(204); // 80% of 255
     }
-    else
-    {
-        ESP_LOGI(TAG, "No backlight available");
-    }
 
-    // Get display and test basic functionality
+    // Get display but only for info, don't use its methods
     auto *display = board.GetDisplay();
     if (display)
     {
         ESP_LOGI(TAG, "Display available: %dx%d", display->width(), display->height());
 
-        // Wait much longer for LVGL to be completely ready
-        ESP_LOGI(TAG, "Waiting for LVGL to be ready...");
-        vTaskDelay(pdMS_TO_TICKS(2000));
+        // Wait for LVGL to initialize
+        ESP_LOGI(TAG, "Waiting for LVGL to initialize...");
+        vTaskDelay(pdMS_TO_TICKS(3000));
 
-        ESP_LOGI(TAG, "Attempting to set status...");
-        // Use DisplayLockGuard for thread safety
+        ESP_LOGI(TAG, "Creating simple demo label...");
+        // Create a simple demo label directly with LVGL - no Display wrapper
+        lv_obj_t *label = lv_label_create(lv_screen_active());
+        if (label)
         {
-            DisplayLockGuard lock(display);
-            display->SetStatus("Hello LVGL!");
+            lv_label_set_text(label, "Kevin Yuying 313 LCD\nMVP Demo\nESP32-S3 + LVGL\nRunning!");
+            lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+            lv_obj_set_style_text_color(label, lv_color_hex(0x0080FF), 0);
+            ESP_LOGI(TAG, "Demo label created successfully");
+        }
+        else
+        {
+            ESP_LOGE(TAG, "Failed to create demo label");
         }
 
-        ESP_LOGI(TAG, "Waiting before notification...");
-        vTaskDelay(pdMS_TO_TICKS(1000));
-
-        ESP_LOGI(TAG, "Attempting to show notification...");
+        // Create a simple colored background
+        lv_obj_t *bg = lv_obj_create(lv_screen_active());
+        if (bg)
         {
-            DisplayLockGuard lock(display);
-            display->ShowNotification("Kevin Yuying 313 LCD MVP", 10000);
+            lv_obj_set_size(bg, 300, 100);
+            lv_obj_align(bg, LV_ALIGN_BOTTOM_MID, 0, -50);
+            lv_obj_set_style_bg_color(bg, lv_color_hex(0x004080), 0);
+            lv_obj_set_style_border_width(bg, 2, 0);
+            lv_obj_set_style_border_color(bg, lv_color_hex(0x0080FF), 0);
+            ESP_LOGI(TAG, "Background element created");
         }
-
-        ESP_LOGI(TAG, "Waiting before graphics...");
-        vTaskDelay(pdMS_TO_TICKS(1000));
-
-        ESP_LOGI(TAG, "Attempting to create label...");
-        // Test drawing some basic graphics with LVGL using DisplayLockGuard
-        {
-            DisplayLockGuard lock(display);
-            lv_obj_t *label = lv_label_create(lv_screen_active());
-            if (label)
-            {
-                ESP_LOGI(TAG, "Label created successfully");
-                lv_label_set_text(label, "LVGL Working!\nESP32-S3");
-                lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
-                lv_obj_set_style_text_color(label, lv_color_hex(0xFF0000), 0);
-                ESP_LOGI(TAG, "Label styled and positioned");
-            }
-            else
-            {
-                ESP_LOGE(TAG, "Failed to create label");
-            }
-        }
-
-        ESP_LOGI(TAG, "Waiting before rectangle...");
-        vTaskDelay(pdMS_TO_TICKS(500));
-
-        ESP_LOGI(TAG, "Attempting to create rectangle...");
-        // Create a simple rectangle using DisplayLockGuard
-        {
-            DisplayLockGuard lock(display);
-            lv_obj_t *rect = lv_obj_create(lv_screen_active());
-            if (rect)
-            {
-                ESP_LOGI(TAG, "Rectangle created successfully");
-                lv_obj_set_size(rect, 150, 80);
-                lv_obj_align(rect, LV_ALIGN_BOTTOM_MID, 0, -50);
-                lv_obj_set_style_bg_color(rect, lv_color_hex(0x00FF00), 0);
-                ESP_LOGI(TAG, "Rectangle configured");
-            }
-            else
-            {
-                ESP_LOGE(TAG, "Failed to create rectangle");
-            }
-        }
-
-        ESP_LOGI(TAG, "LVGL graphics test completed");
     }
     else
     {
-        ESP_LOGE(TAG, "Failed to get display instance");
+        ESP_LOGE(TAG, "No display available");
     }
 
-    ESP_LOGI(TAG, "Display setup task completed");
-
-    // Delete this task
-    vTaskDelete(NULL);
+    ESP_LOGI(TAG, "Simple display setup completed");
 }
 
 extern "C" void app_main(void)
@@ -154,28 +108,17 @@ extern "C" void app_main(void)
         ESP_LOGI(TAG, "No audio codec available - PA pin manually controlled");
     }
 
-    ESP_LOGI(TAG, "Board initialization complete. Starting display setup task...");
+    ESP_LOGI(TAG, "Board initialization complete. Setting up display...");
 
-    // Create display setup task to avoid blocking main task
-    xTaskCreate(display_setup_task, "display_setup", 8192, NULL, 3, NULL);
+    // Simple display setup - no separate task needed
+    setup_simple_display();
 
-    ESP_LOGI(TAG, "Main initialization complete. System running.");
+    ESP_LOGI(TAG, "MVP initialization complete. System running.");
 
-    // Main loop - keep the system running with reduced logging to avoid resource conflicts
-    int counter = 0;
+    // Simple main loop - just keep the system alive
     while (1)
     {
-        // Use longer delay to reduce system load and avoid conflicts with display task
-        vTaskDelay(pdMS_TO_TICKS(10000));
-
-        // Reduce logging frequency and ensure thread safety
-        if (counter % 6 == 0)
-        { // Log every minute instead of every 10 seconds
-            ESP_LOGI(TAG, "System running... %d minutes", counter / 6);
-        }
-        counter++;
-
-        // Yield to allow other tasks to run properly
-        taskYIELD();
+        vTaskDelay(pdMS_TO_TICKS(60000)); // Check every minute
+        ESP_LOGI(TAG, "MVP system running...");
     }
 }

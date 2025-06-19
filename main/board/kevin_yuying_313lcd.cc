@@ -105,8 +105,9 @@ public:
     {
         ESP_LOGI(TAG, "Initializing Kevin Yuying 313 LCD board");
 
-        // Initialize audio codec first to control PA pin
-        audio_codec_ = new DummyAudioCodec(AUDIO_CODEC_PA_PIN, false);
+        // Initialize audio codec to control PA amplifier pin only
+        // Note: Real Kevin Yuying 313 uses ES8311 via I2C, we only control PA enable pin
+        audio_codec_ = new DummyAudioCodec(AUDIO_CODEC_PA_PIN);
 
         // Initialize backlight
         backlight_ = new PwmBacklight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
