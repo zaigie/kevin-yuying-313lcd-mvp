@@ -63,7 +63,9 @@ void LcdDisplay::SetupUI()
     {
         lv_label_set_text(status_label_, "Ready");
         lv_obj_align(status_label_, LV_ALIGN_TOP_MID, 0, 10);
-        ESP_LOGI(TAG, "Status label created");
+        // Set style immediately during creation
+        lv_obj_set_style_text_color(status_label_, lv_color_white(), 0);
+        ESP_LOGI(TAG, "Status label created and styled");
     }
     else
     {
@@ -78,7 +80,9 @@ void LcdDisplay::SetupUI()
         lv_label_set_text(notification_label_, "");
         lv_obj_align(notification_label_, LV_ALIGN_TOP_MID, 0, 50);
         lv_obj_add_flag(notification_label_, LV_OBJ_FLAG_HIDDEN);
-        ESP_LOGI(TAG, "Notification label created");
+        // Set style immediately during creation
+        lv_obj_set_style_text_color(notification_label_, lv_color_hex(0x00FF00), 0);
+        ESP_LOGI(TAG, "Notification label created and styled");
     }
     else
     {
@@ -86,38 +90,7 @@ void LcdDisplay::SetupUI()
         return;
     }
 
-    ESP_LOGI(TAG, "Basic UI components created successfully");
-}
-
-// Task function to set styles after initialization
-void setup_ui_styles_task(void *param)
-{
-    LcdDisplay *display = static_cast<LcdDisplay *>(param);
-
-    // Wait a bit for LVGL to be fully initialized
-    vTaskDelay(pdMS_TO_TICKS(200));
-
-    ESP_LOGI(TAG, "Setting up UI styles");
-
-    // Now safely set the styles
-    DisplayLockGuard lock(display);
-
-    if (display->status_label_)
-    {
-        lv_obj_set_style_text_color(display->status_label_, lv_color_white(), 0);
-        ESP_LOGI(TAG, "Status label style set");
-    }
-
-    if (display->notification_label_)
-    {
-        lv_obj_set_style_text_color(display->notification_label_, lv_color_hex(0x00FF00), 0);
-        ESP_LOGI(TAG, "Notification label style set");
-    }
-
-    ESP_LOGI(TAG, "UI styles set successfully");
-
-    // Delete this task
-    vTaskDelete(NULL);
+    ESP_LOGI(TAG, "Basic UI components created and styled successfully");
 }
 
 // RGB LCD实现
@@ -185,12 +158,8 @@ RgbLcdDisplay::RgbLcdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_h
     }
 
     ESP_LOGI(TAG, "Setting up basic UI");
-    // Setup the basic UI first
+    // Setup the basic UI first - styles are now set immediately during creation
     SetupUI();
-
-    ESP_LOGI(TAG, "Creating UI styles task");
-    // Create a task to set styles after initialization completes
-    xTaskCreate(setup_ui_styles_task, "ui_styles", 2048, this, 5, NULL);
 
     ESP_LOGI(TAG, "RGB LCD display initialization complete");
 }
