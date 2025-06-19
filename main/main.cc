@@ -10,27 +10,9 @@
 #include "board/board.h"
 #include "display/display.h"
 #include "backlight/backlight.h"
+#include "audio/dummy_audio_codec.h"
 
 #define TAG "main"
-
-// 音频功放引脚 - 来自原项目配置
-#define AUDIO_CODEC_PA_PIN GPIO_NUM_45
-
-// 初始化并禁用音频功放，防止扬声器一直响
-static void disable_audio_pa(void)
-{
-    gpio_config_t io_conf = {};
-    io_conf.intr_type = GPIO_INTR_DISABLE;
-    io_conf.mode = GPIO_MODE_OUTPUT;
-    io_conf.pin_bit_mask = (1ULL << AUDIO_CODEC_PA_PIN);
-    io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE; // 启用下拉确保低电平
-    io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
-    gpio_config(&io_conf);
-
-    // 确保音频功放是禁用的（低电平）
-    gpio_set_level(AUDIO_CODEC_PA_PIN, 0);
-    ESP_LOGI(TAG, "Audio PA disabled and silenced on GPIO%d", AUDIO_CODEC_PA_PIN);
-}
 
 // Task to setup display and graphics after board initialization
 static void display_setup_task(void *param)
@@ -66,13 +48,20 @@ static void display_setup_task(void *param)
         vTaskDelay(pdMS_TO_TICKS(2000));
 
         ESP_LOGI(TAG, "Attempting to set status...");
-        display->SetStatus("Hello LVGL!");
+        // Use DisplayLockGuard for thread safety
+        {
+            DisplayLockGuard lock(display);
+            display->SetStatus("Hello LVGL!");
+        }
 
         ESP_LOGI(TAG, "Waiting before notification...");
-        vTaskDelay(pdMS_TO_TICKS(500));
+        vTaskDelay(pdMS_TO_TICKS(1000));
 
         ESP_LOGI(TAG, "Attempting to show notification...");
-        display->ShowNotification("Kevin Yuying 313 LCD MVP", 10000);
+        {
+            DisplayLockGuard lock(display);
+            display->ShowNotification("Kevin Yuying 313 LCD MVP", 10000);
+        }
 
         ESP_LOGI(TAG, "Waiting before graphics...");
         vTaskDelay(pdMS_TO_TICKS(1000));
@@ -135,9 +124,6 @@ extern "C" void app_main(void)
 {
     ESP_LOGI(TAG, "Kevin Yuying 313 LCD MVP starting...");
 
-    // 首先禁用音频功放，防止扬声器一直响
-    disable_audio_pa();
-
     // Initialize the default event loop
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
@@ -156,6 +142,18 @@ extern "C" void app_main(void)
     auto &board = Board::GetInstance();
     ESP_LOGI(TAG, "Board type: %s", board.GetBoardType().c_str());
 
+    // 初始化音频编解码器以确保PA引脚状态正确
+    auto *codec = board.GetAudioCodec();
+    if (codec)
+    {
+        ESP_LOGI(TAG, "Audio codec initialized - PA pin is now controlled properly");
+        ESP_LOGI(TAG, "Audio output enabled: %s", codec->output_enabled() ? "yes" : "no");
+    }
+    else
+    {
+        ESP_LOGI(TAG, "No audio codec available - PA pin manually controlled");
+    }
+
     ESP_LOGI(TAG, "Board initialization complete. Starting display setup task...");
 
     // Create display setup task to avoid blocking main task
@@ -163,11 +161,21 @@ extern "C" void app_main(void)
 
     ESP_LOGI(TAG, "Main initialization complete. System running.");
 
-    // Main loop - just keep the system running and print periodic status
+    // Main loop - keep the system running with reduced logging to avoid resource conflicts
     int counter = 0;
     while (1)
     {
-        vTaskDelay(pdMS_TO_TICKS(5000));
-        ESP_LOGI(TAG, "System running... %d", ++counter);
+        // Use longer delay to reduce system load and avoid conflicts with display task
+        vTaskDelay(pdMS_TO_TICKS(10000));
+
+        // Reduce logging frequency and ensure thread safety
+        if (counter % 6 == 0)
+        { // Log every minute instead of every 10 seconds
+            ESP_LOGI(TAG, "System running... %d minutes", counter / 6);
+        }
+        counter++;
+
+        // Yield to allow other tasks to run properly
+        taskYIELD();
     }
 }

@@ -6,6 +6,7 @@
 // Forward declarations
 class Display;
 class Backlight;
+class DummyAudioCodec;
 
 void *create_board();
 
@@ -29,6 +30,7 @@ public:
     virtual std::string GetBoardType() = 0;
     virtual Backlight *GetBacklight() { return nullptr; }
     virtual Display *GetDisplay() { return nullptr; }
+    virtual DummyAudioCodec *GetAudioCodec() { return nullptr; }
 };
 
 #define DECLARE_BOARD(BOARD_CLASS_NAME) \

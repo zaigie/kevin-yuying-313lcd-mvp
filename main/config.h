@@ -15,4 +15,7 @@
 #define DISPLAY_BACKLIGHT_PIN GPIO_NUM_4
 #define DISPLAY_BACKLIGHT_OUTPUT_INVERT false
 
+// Audio configuration (from original project)
+#define AUDIO_CODEC_PA_PIN GPIO_NUM_45
+
 #endif // _CONFIG_H_

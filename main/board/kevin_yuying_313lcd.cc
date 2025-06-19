@@ -1,6 +1,7 @@
 #include "board.h"
 #include "display/lcd_display.h"
 #include "backlight/backlight.h"
+#include "audio/dummy_audio_codec.h"
 #include "config.h"
 #include "pin_config.h"
 #include "esp_lcd_gc9503.h"
@@ -17,6 +18,7 @@ class Yuying_313lcd : public Board
 private:
     LcdDisplay *display_;
     Backlight *backlight_;
+    DummyAudioCodec *audio_codec_;
 
     void InitializeRGB_GC9503V_Display()
     {
@@ -103,6 +105,9 @@ public:
     {
         ESP_LOGI(TAG, "Initializing Kevin Yuying 313 LCD board");
 
+        // Initialize audio codec first to control PA pin
+        audio_codec_ = new DummyAudioCodec(AUDIO_CODEC_PA_PIN, false);
+
         // Initialize backlight
         backlight_ = new PwmBacklight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
 
@@ -122,6 +127,7 @@ public:
     {
         delete display_;
         delete backlight_;
+        delete audio_codec_;
     }
 
     virtual std::string GetBoardType() override
@@ -137,6 +143,11 @@ public:
     virtual Backlight *GetBacklight() override
     {
         return backlight_;
+    }
+
+    virtual DummyAudioCodec *GetAudioCodec() override
+    {
+        return audio_codec_;
     }
 };
 
